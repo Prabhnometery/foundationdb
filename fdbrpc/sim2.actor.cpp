@@ -2500,6 +2500,10 @@ public:
 			return 0;
 		}
 
+		std::string parentGroup = getTraceLogGroup();
+		pid_t processId;
+		int status;
+
 		// if we are trying to reproduce a fuzzer run, then don't fork - just reseed (possibly)
 		if (fuzzerReproSequence.present()) {
 			if(!fuzzerReproSequence.get().empty()) {
@@ -2507,21 +2511,53 @@ public:
 
 				// if the front of the queue is a seed (i.e. non-empty), then reseed with it
 				if (currMove.present()) {
-					deterministicRandom()->reseed(currMove.get());
-					TraceEvent("FuzzerReproduction")
-					    .detail("NewSeed", currMove.get())
-					    .detail("Context", context);
-				}
+					if ((processId = fork()) == 0) { // child process
+						++forkSearchDepth;
+						int pid = getpid();
 
-				// in either case, we are done with the forkSearch invocation, so pop and return
-				fuzzerReproSequence.get().pop();
+						std::string childLogGroup = parentGroup + "/" + std::to_string(pid); // format to still be finalized
+						startChildTraceLog(childLogGroup);
+						deterministicRandom()->reseed(currMove.get());
+
+						TraceEvent("FuzzerReproduction")
+						    .detail("NewSeed", currMove.get())
+						    .detail("Context", context);
+						fuzzerReproSequence.get().pop();
+						return 0;
+					} else if (processId < 0) {
+						_exit(EXIT_FAILURE);
+					} else { // parent process
+						if (waitpid(processId, &status, 0) == -1) {
+							terminateChildTraceLog();
+							_exit(EXIT_FAILURE);
+						}
+
+						// report according to exit status
+						if (WIFEXITED(status)) {
+							auto exitCode = WEXITSTATUS(status);
+							TraceEvent(exitCode == 0 ? SevInfo : SevError, "ChildProcessReturned")
+							    .detail("ExitCode", exitCode)
+							    .backtrace();
+						} else if (WIFSIGNALED(status)) { // child crash
+							try {
+								TraceEvent(SevError, "ChildProcessCrashed").log();
+								ASSERT(false);
+							} catch (Error&) {
+							}
+						}
+						terminateChildTraceLog();
+					}
+					_exit(0);
+				}
+				else {
+					// in either case, we are done with the forkSearch invocation, so pop and return
+					fuzzerReproSequence.get().pop();
+					return 0;
+				}
 			}
 			return 0;
 		}
 
-		std::string parentGroup = getTraceLogGroup();
-		pid_t processId;
-		int status;
 		for (int i = 0; i < forkSearchFanout; ++i) {
 			if ((processId = fork()) == 0) { // child process
 				++forkSearchDepth;
