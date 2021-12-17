@@ -2501,7 +2501,7 @@ public:
 		}
 
 		// if we are trying to reproduce a fuzzer run, then don't fork - just reseed (possibly)
-		if (fuzzerReproSequence.present()) {
+		if (fuzzerReproSequence.present() && fuzzerReproSequence.get().size() > 0) {
 			Optional<uint32_t> currMove = fuzzerReproSequence.get().front();
 
 			// if the front of the queue is a seed (i.e. non-empty), then reseed with it

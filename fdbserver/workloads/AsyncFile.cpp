@@ -122,7 +122,6 @@ AsyncFileHandle::~AsyncFileHandle() {
 		deleteFile(path);
 		if(FLOW_KNOBS->SIM_FUZZER && g_network->isSimulated()) {
 			auto f = IAsyncFileSystem::filesystem()->deleteFile(path, false);
-			ASSERT(f.canGet());
 		}
 	}
 }
