@@ -2501,20 +2501,21 @@ public:
 		}
 
 		// if we are trying to reproduce a fuzzer run, then don't fork - just reseed (possibly)
-		if (fuzzerReproSequence.present() && fuzzerReproSequence.get().size() > 0) {
-			Optional<uint32_t> currMove = fuzzerReproSequence.get().front();
+		if (fuzzerReproSequence.present()) {
+			if(!fuzzerReproSequence.get().empty()) {
+				Optional<uint32_t> currMove = fuzzerReproSequence.get().front();
 
-			// if the front of the queue is a seed (i.e. non-empty), then reseed with it
-			if (currMove.present()) {
-				deterministicRandom()->reseed(currMove.get());
+				// if the front of the queue is a seed (i.e. non-empty), then reseed with it
+				if (currMove.present()) {
+					deterministicRandom()->reseed(currMove.get());
+					TraceEvent("FuzzerReproduction")
+					    .detail("NewSeed", currMove.get())
+					    .detail("Context", context);
+				}
+
+				// in either case, we are done with the forkSearch invocation, so pop and return
+				fuzzerReproSequence.get().pop();
 			}
-
-			TraceEvent("FuzzerReproduction")
-			    .detail("NewSeed", currMove.present() ? currMove.get() : 'x')
-			    .detail("Context", context);
-
-			// in either case, we are done with the forkSearch invocation, so pop and return
-			fuzzerReproSequence.get().pop();
 			return 0;
 		}
 
