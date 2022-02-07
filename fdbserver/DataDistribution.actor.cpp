@@ -4231,7 +4231,7 @@ ACTOR Future<Void> clusterHealthCheckForPerpetualWiggle(DDTeamCollection* self, 
 			// between pause and non-pause status.
 			if ((self->healthyTeamCount <= *extraTeamCount ||
 			     self->bestTeamKeepStuckCount > SERVER_KNOBS->DD_STORAGE_WIGGLE_PAUSE_THRESHOLD) &&
-			    !self->pauseWiggle->get()) {
+			    self->pauseWiggle->get()) {
 				*extraTeamCount = std::min(*extraTeamCount + pausePenalty, (int)self->teams.size());
 				pausePenalty = std::min(pausePenalty * 2, (int)self->teams.size());
 			}
